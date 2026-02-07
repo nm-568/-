@@ -3,8 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>梧桐文件提取工具 </title>
-    <!-- 引入解析库 -->
+    <title>梧桐文件提取工具</title>
+
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#3b82f6">
+    <link rel="apple-touch-icon" href="icon-192.png">
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -278,7 +282,6 @@
     </div>
 
     <div class="controls-container">
-        <!-- 上传 & 搜索 -->
         <div class="row">
             <input type="file" id="fileInput" accept=".txt,.json,.js,.css,.html,.md,.xml,.csv,.docx,.pdf,.xlsx,.xls">
             
@@ -299,7 +302,6 @@
             </div>
         </div>
 
-        <!-- 功能按键 -->
         <div class="row">
             <button id="clearBtn" class="btn btn-danger">
                 <svg class="icon" viewBox="0 0 24 24"><path d="M16 9v10H8V9h8m-1.5-6h-5l-1 1H5v2h14V4h-3.5l-1-1zM18 7H6v12c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7z"/></svg> 清除
@@ -309,7 +311,6 @@
             </button>
         </div>
 
-        <!-- 预设 (IndexedDB版) -->
         <div class="row" style="background: rgba(0,0,0,0.03); padding: 8px; border-radius: 6px;">
             <select id="presetSelect" style="max-width: 150px;">
                 <option value="">-- 选择预设 --</option>
@@ -329,7 +330,6 @@
     </div>
 
     <div class="editor-container">
-        <!-- 核心技巧：inputmode="text" 是默认，搜索时会动态改为 "none" -->
         <textarea id="outputArea" inputmode="text" placeholder="内容显示区..."></textarea>
         <div id="loading" class="loading-overlay">
             <div style="text-align:center">
@@ -339,10 +339,8 @@
         </div>
     </div>
 
-    <!-- 1. Toast 提示 -->
     <div id="toast" class="toast">提示信息</div>
 
-    <!-- 2. 输入弹窗 (保存预设) -->
     <div id="promptModal" class="modal-overlay">
         <div class="modal-box">
             <span class="modal-title">保存预设</span>
@@ -354,7 +352,6 @@
         </div>
     </div>
 
-    <!-- 3. 确认弹窗 (更新/删除预设) -->
     <div id="confirmModal" class="modal-overlay">
         <div class="modal-box">
             <span class="modal-title" id="confirmTitle">提示</span>
@@ -369,6 +366,15 @@
     <style>@keyframes spin { 100% { transform: rotate(360deg); } }</style>
 
     <script>
+        // --- 0. PWA 注册逻辑 ---
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('PWA Service Worker 已就绪'))
+                    .catch(err => console.log('PWA 注册失败', err));
+            });
+        }
+
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
         // --- DOM 元素 ---
@@ -392,7 +398,7 @@
             loading: document.getElementById('loading'),
             toast: document.getElementById('toast'),
             modal: document.getElementById('promptModal'),
-            confirm: document.getElementById('confirmModal') // 新增确认弹窗
+            confirm: document.getElementById('confirmModal') 
         };
 
         // --- IndexedDB 存储模块 ---
@@ -498,10 +504,10 @@
 
         function highlightAndScroll(start, length) {
             const el = UI.output;
-            el.setAttribute('inputmode', 'none'); // 禁止键盘弹出
+            el.setAttribute('inputmode', 'none'); 
             el.focus();
             el.setSelectionRange(start, start + length);
-            el.blur(); el.focus(); // 强制滚动
+            el.blur(); el.focus(); 
             UI.search.status.textContent = `${searchState.currentIdx + 1}/${searchState.indices.length}`;
         }
 
@@ -518,7 +524,7 @@
         UI.search.next.addEventListener('click', () => runSearch(1));
         UI.search.prev.addEventListener('click', () => runSearch(-1));
 
-        // --- 2. 预设功能 (UI优化版) ---
+        // --- 2. 预设功能 ---
         async function refreshPresets() {
             const list = await DB.getAll();
             UI.preset.select.innerHTML = '<option value="">-- 选择预设 --</option>';
@@ -543,7 +549,6 @@
             }
         });
 
-        // 保存 - 使用 Prompt 弹窗
         UI.preset.save.addEventListener('click', () => {
             if (!UI.output.value) return showToast('内容为空');
             showPrompt('请输入新预设名称', async (name) => {
@@ -554,7 +559,6 @@
             });
         });
 
-        // 更新 - 使用 Confirm 弹窗 (自定义)
         UI.preset.update.addEventListener('click', async () => {
             const currentName = UI.preset.select.value;
             if (!currentName) return showToast('请先选择预设');
@@ -566,7 +570,6 @@
             });
         });
 
-        // 删除 - 使用 Confirm 弹窗 (自定义)
         UI.preset.del.addEventListener('click', async () => {
             const name = UI.preset.select.value;
             if (!name) return showToast('未选择预设');
@@ -656,42 +659,31 @@
             setTimeout(() => UI.toast.style.display = 'none', 2000);
         }
 
-        // 输入框弹窗 (Show Prompt)
         function showPrompt(title, cb) {
-            document.querySelector('.modal-title').textContent = title;
+            document.querySelector('#promptModal .modal-title').textContent = title;
             const inp = document.getElementById('promptInput');
             inp.value = '';
             UI.modal.style.display = 'flex';
             inp.focus();
             
-            const confirmBtn = document.getElementById('promptConfirm');
-            const cancelBtn = document.getElementById('promptCancel');
-
-            // 简单覆盖 onclick，防止多次绑定
-            confirmBtn.onclick = () => {
+            document.getElementById('promptConfirm').onclick = () => {
                 if(inp.value.trim()) cb(inp.value.trim());
                 UI.modal.style.display = 'none';
             };
-            cancelBtn.onclick = () => UI.modal.style.display = 'none';
+            document.getElementById('promptCancel').onclick = () => UI.modal.style.display = 'none';
         }
 
-        // 确认框弹窗 (Show Confirm) - 新增
         function showConfirm(title, message, onConfirm) {
             document.getElementById('confirmTitle').textContent = title;
             document.getElementById('confirmMessage').textContent = message;
-            
-            const modal = UI.confirm;
-            modal.style.display = 'flex';
+            UI.confirm.style.display = 'flex';
 
-            const okBtn = document.getElementById('confirmOkBtn');
-            const cancelBtn = document.getElementById('confirmCancelBtn');
-
-            okBtn.onclick = () => {
-                modal.style.display = 'none';
+            document.getElementById('confirmOkBtn').onclick = () => {
+                UI.confirm.style.display = 'none';
                 onConfirm();
             };
-            cancelBtn.onclick = () => {
-                modal.style.display = 'none';
+            document.getElementById('confirmCancelBtn').onclick = () => {
+                UI.confirm.style.display = 'none';
             };
         }
     </script>
